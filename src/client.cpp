@@ -62,31 +62,6 @@ void connectToServer(int anySocket, struct sockaddr_in anyAddress)
     std::cout << "Направление на сервер ..." << std::endl;
 }
 
-/*
-int get_socket(const char* ip, const char* port)
-{
-    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock_fd < 0)
-    {
-        fprintf(stderr, "socket failure\n");
-        exit(1);
-    }
-
-    struct sockaddr_in remote;
-    remote.sin_family = AF_INET;
-    remote.sin_port = htons(atoi(port));
-    inet_aton(ip, &remote.sin_addr);
-
-    // int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-    int flag = connect(sock_fd, (struct sockaddr*)&remote, sizeof(remote));
-    if (flag < 0)
-    {
-        fprintf(stderr, "connect failure\n");
-        exit(2);
-    }
-    return sock_fd;
-}*/
-
 void *write(void *inputData)
 {
     int socketClient;
@@ -96,11 +71,6 @@ void *write(void *inputData)
     {
         char buffer[BUF_SIZE];
 
-        /*std::cout << "<----";
-        bzero(buffer, BUF_SIZE + 1);
-        std::cin.getline(buffer, BUF_SIZE);*/
-
-        // printf(":");
         fflush(stdout);
         ssize_t s = read(0, buffer, sizeof(buffer) - 1);
 
@@ -148,17 +118,7 @@ int main()
     int socketClient = createSocket();
     struct sockaddr_in socketAddress = defineAddress(SERVERPORT);
 
-    /*std::cout << "Ввеедите ваш никнейм: " ; 
-    fflush(stdout);
-    ssize_t s = read(0, buffer, sizeof(buffer) - 1);
-    buffer[s - 1] = '\0';*/
-
     connectToServer(socketClient, socketAddress);
-
-    //write(socketClient, buffer, strlen(buffer));
-
-    // Output to the network with redirection
-    // dup()
 
     while (1)
     {
@@ -170,20 +130,5 @@ int main()
 
         pthread_join(thread[1], NULL);
         pthread_join(thread[0], NULL);
-
-        /*memset(buf, '\0', sizeof(buf));
-        printf("please enter # ");
-        fflush(stdout);
-        ssize_t s = read(0, buf, sizeof(buf)-1);
-        if (s > 0)
-        {
-            buf[s-1] = '\0';
-            write(socketClient, buf, strlen(buf));
-            s = read(socketClient, buf, sizeof(buf)-1);
-            if (s > 0)
-            {
-                printf("server echo # %s\n", buf);
-            }
-        }*/
     }
 }

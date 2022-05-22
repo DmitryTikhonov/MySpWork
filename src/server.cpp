@@ -92,12 +92,6 @@ int main()
     fd_array[0] = socketServer;
     int max_fd = -1;
 
-    //struct timeval timeout = {5, 0}; // 3s
-    // void FD_CLR(int fd, fd_set *set);
-    // int  FD_ISSET(int fd, fd_set *set);
-    // void FD_SET(int fd, fd_set *set);
-    // void FD_ZERO(fd_set *set);
-    //
     fd_set my_fd_set;
 
     std::cout << "Ожидание подключений..." << std::endl;
@@ -118,8 +112,7 @@ int main()
                 }
             }
         }
-        // int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
-        int flag = select(max_fd + 1, &my_fd_set, NULL, NULL, 0); // The last parameter indicates whether it is blocked, 0 means blocking, Timeout means Timeout time waiting
+        int flag = select(max_fd + 1, &my_fd_set, NULL, NULL, 0);
 
         switch (flag)
         {
