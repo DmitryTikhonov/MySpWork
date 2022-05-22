@@ -14,12 +14,14 @@
 #define TRUE 1
 #define SERVERPORT 8080
 #define MAXCLIENTS 30
+#define BUF_SIZE 1024
 
 int fd_array[N];
 unsigned int clientCount = 0;
 
-struct myClient{ // Структура клиентов для хранения информации
-    std::string username;
+struct myClient
+{ // Структура клиентов для хранения информации
+    char username[BUF_SIZE];
     int socketID;
     int index;
     struct sockaddr_in clientAddr;
@@ -28,8 +30,22 @@ struct myClient{ // Структура клиентов для хранения 
 
 struct myClient Client[MAXCLIENTS];
 
+int SearchByLine(char buffer[BUF_SIZE])
+{
+    int n, k = strlen(buffer);
+    for (int i = 0; i < k; i++)
+    {
+        if (buffer[i] == ':')
+        {
+            n = i + 1;
+            break;
+        }
+    }
+    return n;
+}
+
 int createSocket()
-{ // создание IPv4 сокета
+{ // создание сокета
     int newSocket;
     int opt = TRUE;
     if ((newSocket = socket(AF_INET, SOCK_STREAM, 0)) == 0)
@@ -73,6 +89,18 @@ void listenForConnections(int anySocket)
     {
         std::cerr << "listen";
         exit(EXIT_FAILURE);
+    }
+}
+
+void exitserver(int fd_array[N])
+{
+    for (unsigned int i; i < N; i++)
+    {
+        if (fd_array[i] > 0)
+        {
+            close(fd_array[i]);
+            fd_array[i] = -1;
+        }
     }
 }
 
@@ -134,20 +162,15 @@ int main()
                 // Find a valid FD to operate
                 if (i == 0 && FD_ISSET(socketServer, &my_fd_set))
                 {
-                    // int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-
-                    struct sockaddr_in client;
-                    socklen_t len = sizeof(client);
-
-                    int new_fd = accept(socketServer, (struct sockaddr *)&client, &len);
+                    int new_fd = accept(socketServer, (struct sockaddr *)&Client[clientCount].clientAddr, &Client->len);
                     if (new_fd < 0)
                     {
-                        // fprintf(stderr, "accept failure\n");
                         continue;
                     }
-                    char *ip = inet_ntoa(client.sin_addr);
-                    int port = ntohs(client.sin_port);
-                    printf("get a new client %s:%d\n", ip, port);
+                    char *ip = inet_ntoa(Client[clientCount].clientAddr.sin_addr);
+                    int port = ntohs(Client[clientCount].clientAddr.sin_port);
+
+                    printf("Подключился новый клиент %s:%d\n", ip, port);
                     clientCount++;
 
                     unsigned int j = 1;
@@ -164,31 +187,50 @@ int main()
                     else
                     {
                         fd_array[j] = new_fd;
+                        Client[i].socketID = new_fd;
                     }
                 }
                 else if (i > 0 && FD_ISSET(fd_array[i], &my_fd_set)) // If it is a normal socket
                 {
                     // Read Client Data
-                    char buf[1024];
+                    char buf[BUF_SIZE];
+                    //char username[BUF_SIZE];
+                    char massage[BUF_SIZE];
+
+                    bzero(buf, BUF_SIZE);
+                    bzero(Client[i - 1].username, BUF_SIZE);
+                    bzero(massage, BUF_SIZE);
+
                     ssize_t s = read(fd_array[i], buf, sizeof(buf) - 1);
                     if (s > 0)
                     {
                         buf[s] = '\0';
-                        printf("client # %s\n", buf);
-                        //std::cout << "Client fd: " << fd_array[i] << std::endl;
-                        //write(fd_array[i], buf, strlen(buf));
+                        int count = SearchByLine(buf) - 1;
 
-                        //write(fd_array[i+1], buf, strlen(buf));
+                        strncpy(Client[i - 1].username, buf, count);
+                        strcpy(massage, &buf[count + 1]);
+
+                        std::string tester(massage);
+
+                        printf("%s[%s:%d] - %s\n", Client[i - 1].username, inet_ntoa(Client[i - 1].clientAddr.sin_addr), ntohs(Client[i - 1].clientAddr.sin_port), massage);
+
+                        if (tester == "exit_server")
+                        {
+                            for (unsigned int h = 1; h <= clientCount; h++)
+                            {
+                                write(fd_array[h], buf, strlen(buf));
+                            }
+                            exitserver(fd_array);
+                        }
                         for (unsigned int h = 1; h <= clientCount; h++)
                         {
                             if (h != i)
                                 write(fd_array[h], buf, strlen(buf));
                         }
-                        //buf[1024] = {0};
                     }
                     else if (s == 0)
                     {
-                        printf("client quits\n");
+                        printf("%s quits\n", Client[i - 1].username);
                         clientCount--;
                         close(fd_array[i]);
                         fd_array[i] = -1;

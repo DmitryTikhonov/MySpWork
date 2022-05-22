@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <pthread.h>
+#include <cstring>
 
 #define SERVERPORT 8080
 #define TRUE 1
@@ -17,9 +18,24 @@ typedef struct
 {
     int socketClient;
     struct sockaddr_in socketAddress;
+    char username[BUF_SIZE];
 } PthreadData;
 
 pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+
+int SearchByLine(char buffer[1024])
+{
+    int n, k = strlen(buffer);
+    for (int i = 0; i < k; i++)
+    {
+        if (buffer[i] == ':')
+        {
+            n = i + 1;
+            break;
+        }
+    }
+    return n;
+}
 
 int createSocket()
 { // создание IPv4 сокета
@@ -65,17 +81,30 @@ void connectToServer(int anySocket, struct sockaddr_in anyAddress)
 void *write(void *inputData)
 {
     int socketClient;
+
     PthreadData *data = (PthreadData *)inputData;
     socketClient = data->socketClient;
+
+    char buffer[BUF_SIZE];
+    char massage[BUF_SIZE];
+    char username[BUF_SIZE];
+
+    bzero(username, BUF_SIZE);
+
+    strcpy(username, data->username);
     for (;;)
     {
-        char buffer[BUF_SIZE];
+
+        bzero(buffer, BUF_SIZE);
+        bzero(massage, BUF_SIZE);
 
         fflush(stdout);
         ssize_t s = read(0, buffer, sizeof(buffer) - 1);
 
         buffer[s - 1] = '\0';
-        write(socketClient, buffer, strlen(buffer));
+        strcpy(massage, username);
+        strcat(massage, buffer);
+        write(socketClient, massage, strlen(massage));
 
         // send(socketClient, buffer, strlen(buffer), 0);
     }
@@ -85,21 +114,29 @@ void *write(void *inputData)
 void *read(void *inputData)
 {
     int socketClient;
+    bool loop = false;
+
+    char username[BUF_SIZE];
+    char massage[BUF_SIZE];
+    char buffer[BUF_SIZE];
+
     PthreadData *data = (PthreadData *)inputData;
     socketClient = data->socketClient;
-    char buffer[BUF_SIZE];
-    bzero(buffer, BUF_SIZE);
-    bool loop = false;
 
     while (!loop)
     {
         bzero(buffer, BUF_SIZE);
+        bzero(username, BUF_SIZE);
+        bzero(massage, BUF_SIZE);
 
         int rc = read(socketClient, buffer, BUF_SIZE);
         if (rc > 0)
         {
-            std::string tester(buffer);
-            std::cout << ":" << tester << std::endl;
+            int count = SearchByLine(buffer) - 1;
+            strncpy(username, buffer, count);
+            strcpy(massage, &buffer[count + 1]);
+            std::string tester(massage);
+            printf("%s - %s\n", username, massage);
 
             if (tester == "exit_server")
                 break;
@@ -108,15 +145,24 @@ void *read(void *inputData)
     std::cout << "\nClosing thread and conn" << std::endl;
     close(socketClient);
     pthread_exit(NULL);
+    exit(EXIT_FAILURE);
 }
 
 int main()
 {
     char buffer[BUF_SIZE];
+
     pthread_t thread[2];
     PthreadData data;
+
     int socketClient = createSocket();
     struct sockaddr_in socketAddress = defineAddress(SERVERPORT);
+
+    std::cout << "Введите ваш никнейм: ";
+    std::cin >> buffer;
+
+    strcat(buffer, ":");
+    strcpy(data.username, buffer);
 
     connectToServer(socketClient, socketAddress);
 
